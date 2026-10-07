@@ -1,0 +1,717 @@
+```html
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflex AZERTY Game</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Orbitron & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            cyber: ['Orbitron', 'sans-serif'],
+          },
+          colors: {
+            cyberDark: '#070913',
+            cyberCard: '#101426',
+            neonPink: '#ff007f',
+            neonCyan: '#00f3ff',
+            neonGreen: '#00ff88',
+            neonYellow: '#ffe600',
+          },
+          boxShadow: {
+            neonPink: '0 0 25px rgba(255, 0, 127, 0.45)',
+            neonCyan: '0 0 25px rgba(0, 243, 255, 0.45)',
+            neonGreen: '0 0 25px rgba(0, 255, 136, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0, 243, 255, 0.4), inset 0 0 15px rgba(0, 243, 255, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(0, 243, 255, 0.8), inset 0 0 25px rgba(0, 243, 255, 0.4); }
+    }
+    .target-key-glow {
+      animation: pulseGlow 1.2s infinite ease-in-out;
+      border-color: #00f3ff !important;
+      color: #00f3ff !important;
+      transform: translateY(-4px) scale(1.08);
+      background: radial-gradient(circle, rgba(0, 243, 255, 0.25) 0%, rgba(16, 20, 38, 0.9) 100%) !important;
+    }
+    .screen-shake {
+      animation: shake 0.28s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-3px, 0, 0); }
+      20%, 80% { transform: translate3d(5px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #00f3ff40;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="bg-cyberDark text-slate-100 font-sans min-h-screen flex flex-col select-none overflow-x-hidden relative">
+
+  <canvas id="bg-canvas" class="fixed inset-0 pointer-events-none z-0 opacity-40"></canvas>
+
+  <!-- ========================================== -->
+  <!-- 1. ÉCRAN D'INTRODUCTION (SPLASH SCREEN)    -->
+  <!-- ========================================== -->
+  <div id="intro-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#05070e] via-[#090d21] to-[#04060d] backdrop-blur-xl transition-all duration-700">
+    <!-- Overlay Glow effect -->
+    <div class="absolute w-[500px] h-[500px] rounded-full bg-neonPink/15 blur-[120px] pointer-events-none -top-20 -left-20"></div>
+    <div class="absolute w-[500px] h-[500px] rounded-full bg-neonCyan/15 blur-[120px] pointer-events-none -bottom-20 -right-20"></div>
+
+    <div class="relative z-10 max-w-2xl w-full text-center flex flex-col items-center gap-8">
+      
+      <!-- Audio status badge -->
+      <div id="audio-autoplay-prompt" class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 shadow-md">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" id="audio-indicator"></span>
+        <span id="audio-status-text">Audio en cours de chargement...</span>
+        <button id="force-unmute-btn" class="ml-2 text-neonCyan underline hover:text-white transition">Activer son</button>
+      </div>
+
+      <!-- Titre Spécifique Demandé -->
+      <div class="space-y-3">
+        <span class="px-3 py-1 rounded-md text-xs font-cyber tracking-widest uppercase bg-neonPink/20 text-neonPink border border-neonPink/40">
+          Transmission Entrante
+        </span>
+        <h1 class="text-4xl sm:text-6xl font-black font-cyber text-transparent bg-clip-text bg-gradient-to-r from-neonPink via-neonYellow to-neonCyan tracking-wide leading-tight drop-shadow-lg">
+          Salut gemini willy je suis tout moche
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
+          Prépare tes réflexes pour dompter le clavier AZERTY. La musique d'intro tourne en boucle...
+        </p>
+      </div>
+
+      <!-- Action Prompt -->
+      <div class="flex flex-col items-center gap-4 w-full">
+        <div class="relative group cursor-pointer" onclick="handleStartKey()">
+          <div class="absolute -inset-1 bg-gradient-to-r from-neonPink to-neonCyan rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
+          <button class="relative px-8 py-5 bg-cyberCard border-2 border-neonCyan rounded-2xl flex items-center gap-5 shadow-neonCyan transform group-hover:scale-105 active:scale-95 transition-all">
+            <div class="w-14 h-14 rounded-xl bg-neonCyan/20 border border-neonCyan flex items-center justify-center text-3xl font-cyber font-black text-neonCyan shadow-inner">
+              A
+            </div>
+            <div class="text-left">
+              <span class="block text-xs uppercase tracking-wider text-slate-400">Ordre de départ</span>
+              <span class="text-lg sm:text-xl font-bold font-cyber text-white">Appuie sur la touche [A]</span>
+            </div>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-500 font-mono">
+          <i class="fa-solid fa-keyboard mr-1"></i> Appuie sur <strong class="text-slate-300">A</strong> au clavier ou clique sur le bouton ci-dessus
+        </p>
+      </div>
+
+      <!-- Music Info badge -->
+      <div class="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-800">
+        <i class="fa-solid fa-compact-disc animate-spin text-neonPink text-sm"></i>
+        <span>Musique d'intro : <code class="text-slate-400">ul4ay1.mp3</code> (boucle automatique)</span>
+      </div>
+
+    </div>
+  </div>
+
+  <main id="game-container" class="relative z-10 flex-1 flex flex-col max-w-6xl w-full mx-auto p-4 sm:p-6 opacity-0 transition-opacity duration-700">
+    
+    <!-- Top Bar: Header & Controls -->
+    <header class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-neonPink to-neonCyan flex items-center justify-center text-black font-cyber font-black text-xl shadow-neonCyan">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <div>
+          <h2 class="text-lg sm:text-xl font-black font-cyber tracking-wide text-white">
+            REFLEX <span class="text-neonCyan">AZERTY</span>
+          </h2>
+          <span class="text-xs text-slate-400 font-mono">Défi de frappe ultra-rapide</span>
+        </div>
+      </div>
+
+      <!-- Stat Badges -->
+      <div class="flex items-center gap-2 sm:gap-4 font-mono text-xs sm:text-sm">
+        <!-- Score -->
+        <div class="px-3 py-2 rounded-xl bg-cyberCard border border-slate-800 flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-trophy text-neonYellow"></i>
+          <span class="text-slate-400">Score:</span>
+          <span id="score-display" class="font-bold font-cyber text-white text-base">0</span>
+        </div>
+        <!-- Combo -->
+        <div class="px-3 py-2 rounded-xl bg-cyberCard border border-slate-800 flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-fire text-neonPink"></i>
+          <span class="text-slate-400">Combo:</span>
+          <span id="combo-display" class="font-bold font-cyber text-neonPink text-base">0x</span>
+        </div>
+        <!-- Temps Réaction -->
+        <div class="px-3 py-2 rounded-xl bg-cyberCard border border-slate-800 hidden sm:flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-stopwatch text-neonCyan"></i>
+          <span class="text-slate-400">Réaction:</span>
+          <span id="speed-display" class="font-bold text-neonCyan">-- ms</span>
+        </div>
+        <!-- Bouton Volume Global -->
+        <button id="sound-toggle-btn" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-cyberCard border border-slate-800 hover:border-neonCyan transition text-slate-300">
+          <i id="volume-icon" class="fa-solid fa-volume-high text-neonCyan"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="my-6 flex flex-col items-center justify-center">
+      
+      <!-- Visual Card Prompt -->
+      <div class="relative w-full max-w-md mx-auto">
+        <div class="absolute -inset-1 bg-gradient-to-r from-neonCyan via-neonYellow to-neonPink rounded-3xl blur-md opacity-30"></div>
+        <div id="target-card" class="relative bg-cyberCard/90 border-2 border-slate-700/60 rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-center gap-3 backdrop-blur-md shadow-2xl transition-all duration-150">
+          
+          <div class="text-xs font-cyber uppercase tracking-widest text-slate-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-neonCyan animate-ping"></span>
+            Appuie Immédiatement Sur
+          </div>
+
+          <!-- Target character big display -->
+          <div id="target-char" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-neonCyan flex items-center justify-center text-5xl sm:text-6xl font-black font-cyber text-neonCyan shadow-neonCyan transform transition-all">
+            --
+          </div>
+
+          <!-- Prompt description / key name -->
+          <div id="target-description" class="text-slate-300 text-sm font-semibold tracking-wide">
+            Prêt ? Appuie sur la touche indiquée !
+          </div>
+
+          <!-- Mini Timer gauge -->
+          <div class="w-full bg-slate-800/80 h-2 rounded-full overflow-hidden mt-2">
+            <div id="time-gauge" class="h-full bg-gradient-to-r from-neonCyan to-neonPink w-full transition-all duration-75"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback Banner (Correct / Missed) -->
+      <div id="feedback-banner" class="h-8 mt-3 text-center font-cyber font-bold text-sm tracking-wider opacity-0 transition-opacity flex items-center justify-center gap-2">
+        <span>BIEN JOUÉ !</span>
+      </div>
+    </div>
+
+    <div class="mt-auto pb-4">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-2 px-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-keyboard text-neonCyan"></i>
+          <span>Disposition physique : Clavier AZERTY standard (France)</span>
+        </div>
+        <span class="hidden sm:inline text-slate-500">Cliquez ou tapez sur votre vrai clavier</span>
+      </div>
+
+      <!-- Virtual Keyboard container -->
+      <div id="keyboard-container" class="bg-cyberCard/80 border border-slate-800 rounded-2xl p-2 sm:p-4 backdrop-blur-md shadow-2xl flex flex-col gap-1.5 sm:gap-2 select-none overflow-x-auto custom-scrollbar">
+        <!-- Rows will be injected and handled via JS with AZERTY layout -->
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    /* ==========================================================
+       1. GESTION DES RESSOURCES AUDIO & INTRO
+       ========================================================== */
+    const INTRO_AUDIO_URL = "https://files.catbox.moe/ul4ay1.mp3";
+
+    // Les 8 sons demandés pour chaque touche réussie
+    const GAME_SOUND_URLS = [
+      "https://files.catbox.moe/znyhuj.mp3",
+      "https://files.catbox.moe/gvkjsg.mp3",
+      "https://files.catbox.moe/pxfani.mp3",
+      "https://files.catbox.moe/d3vajg.mp3",
+      "https://files.catbox.moe/zjzxkl.mp3",
+      "https://files.catbox.moe/264hzy.mp3",
+      "https://files.catbox.moe/skxo46.mp3",
+      "https://files.catbox.moe/45k4cu.mp3"
+    ];
+
+    let isSoundMuted = false;
+    let introAudio = new Audio(INTRO_AUDIO_URL);
+    introAudio.loop = true;
+    introAudio.preload = "auto";
+
+    // Préchargement des sons du jeu
+    const audioPool = GAME_SOUND_URLS.map(url => {
+      const a = new Audio(url);
+      a.preload = "auto";
+      return a;
+    });
+
+    let currentSoundIndex = 0;
+
+    // Tentative de lancement de l'audio d'intro
+    function tryPlayIntroAudio() {
+      if (introAudio.paused) {
+        introAudio.play().then(() => {
+          const indicator = document.getElementById('audio-indicator');
+          const statusText = document.getElementById('audio-status-text');
+          if (indicator) {
+            indicator.classList.remove('bg-amber-400');
+            indicator.classList.add('bg-neonGreen');
+          }
+          if (statusText) statusText.textContent = "Musique d'intro active en boucle 🎵";
+        }).catch(() => {
+          const statusText = document.getElementById('audio-status-text');
+          if (statusText) statusText.textContent = "Clique pour autoriser le son du navigateur 🔊";
+        });
+      }
+    }
+
+    // Gestion du démarrage audio aux clics / touches
+    window.addEventListener('click', tryPlayIntroAudio, { once: false });
+    document.getElementById('force-unmute-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      tryPlayIntroAudio();
+    });
+
+    // Arrêt net de l'intro et démarrage du jeu
+    let gameStarted = false;
+
+    function handleStartKey() {
+      if (gameStarted) return;
+      gameStarted = true;
+
+      // Arrêt du son de l'intro net
+      try {
+        introAudio.pause();
+        introAudio.currentTime = 0;
+      } catch (err) {
+        console.error(err);
+      }
+
+      // Transition visuelle
+      const introScreen = document.getElementById('intro-screen');
+      const gameContainer = document.getElementById('game-container');
+
+      introScreen.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+      setTimeout(() => {
+        introScreen.remove();
+        gameContainer.classList.remove('opacity-0');
+        startGameLoop();
+      }, 600);
+    }
+
+    // Écouteur global pour la touche [A] dans l'intro
+    window.addEventListener('keydown', (e) => {
+      if (!gameStarted) {
+        // En AZERTY, 'a' ou 'A'
+        if (e.key.toLowerCase() === 'a') {
+          handleStartKey();
+        }
+      } else {
+        handleGameKeyPress(e.key);
+      }
+    });
+
+    function playHitSound() {
+      if (isSoundMuted) return;
+      
+      // Choix du son dans le pool (rotation cyclique ou aléatoire pour variété)
+      const nextSound = audioPool[currentSoundIndex % audioPool.length];
+      currentSoundIndex++;
+
+      // Clone node pour autoriser des tirs rapides et superposés sans bloquer
+      try {
+        const soundClone = nextSound.cloneNode(true);
+        soundClone.volume = 0.9;
+        soundClone.play().catch(e => console.log('Audio playback error:', e));
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // Toggle mute
+    document.getElementById('sound-toggle-btn').addEventListener('click', () => {
+      isSoundMuted = !isSoundMuted;
+      const volIcon = document.getElementById('volume-icon');
+      if (isSoundMuted) {
+        volIcon.className = "fa-solid fa-volume-xmark text-slate-500";
+      } else {
+        volIcon.className = "fa-solid fa-volume-high text-neonCyan";
+      }
+    });
+
+    /* ==========================================================
+       2. REPRÉSENTATION DU CLAVIER AZERTY VIRTUEL
+       ========================================================== */
+    const AZERTY_LAYOUT = [
+      // Rangée 1 : Chiffres / caractères supérieurs
+      [
+        { key: '&', alt: '1', display: '1' },
+        { key: 'é', alt: '2', display: '2' },
+        { key: '"', alt: '3', display: '3' },
+        { key: '\'', alt: '4', display: '4' },
+        { key: '(', alt: '5', display: '5' },
+        { key: '-', alt: '6', display: '6' },
+        { key: 'è', alt: '7', display: '7' },
+        { key: '_', alt: '8', display: '8' },
+        { key: 'ç', alt: '9', display: '9' },
+        { key: 'à', alt: '0', display: '0' },
+        { key: ')', alt: '°', display: ')' },
+        { key: '=', alt: '+', display: '=' }
+      ],
+      // Rangée 2 : AZERTY
+      [
+        { key: 'a', display: 'A' },
+        { key: 'z', display: 'Z' },
+        { key: 'e', display: 'E' },
+        { key: 'r', display: 'R' },
+        { key: 't', display: 'T' },
+        { key: 'y', display: 'Y' },
+        { key: 'u', display: 'U' },
+        { key: 'i', display: 'I' },
+        { key: 'o', display: 'O' },
+        { key: 'p', display: 'P' },
+        { key: '^', display: '^' },
+        { key: '$', display: '$' }
+      ],
+      // Rangée 3 : QSDFGHJKLM
+      [
+        { key: 'q', display: 'Q' },
+        { key: 's', display: 'S' },
+        { key: 'd', display: 'D' },
+        { key: 'f', display: 'F' },
+        { key: 'g', display: 'G' },
+        { key: 'h', display: 'H' },
+        { key: 'j', display: 'J' },
+        { key: 'k', display: 'K' },
+        { key: 'l', display: 'L' },
+        { key: 'm', display: 'M' },
+        { key: 'ù', display: 'Ù' },
+        { key: '*', display: '*' }
+      ],
+      // Rangée 4 : WXCVBN
+      [
+        { key: '<', display: '<' },
+        { key: 'w', display: 'W' },
+        { key: 'x', display: 'X' },
+        { key: 'c', display: 'C' },
+        { key: 'v', display: 'V' },
+        { key: 'b', display: 'B' },
+        { key: 'n', display: 'N' },
+        { key: ',', display: ',' },
+        { key: ';', display: ';' },
+        { key: ':', display: ':' },
+        { key: '!', display: '!' }
+      ],
+      // Rangée 5 : Barre Espace
+      [
+        { key: ' ', display: 'ESPACE', widthClass: 'w-48 sm:w-80' }
+      ]
+    ];
+
+    // Clés cibles possibles pour le jeu (lettres courantes + chiffres)
+    const TARGET_POOL = [
+      'a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p',
+      'q', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm',
+      'w', 'x', 'c', 'v', 'b', 'n',
+      '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+      ' '
+    ];
+
+    const keyboardContainer = document.getElementById('keyboard-container');
+    const keyElementsMap = new Map();
+
+    function renderVirtualKeyboard() {
+      keyboardContainer.innerHTML = '';
+
+      AZERTY_LAYOUT.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = "flex justify-center items-center gap-1 sm:gap-1.5 w-full";
+
+        row.forEach(item => {
+          const btn = document.createElement('button');
+          const widthClass = item.widthClass || 'w-7 sm:w-12';
+          btn.className = `${widthClass} h-9 sm:h-12 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-200 font-cyber text-xs sm:text-sm font-semibold flex items-center justify-center transition-all duration-100 hover:border-slate-500 shadow-sm active:translate-y-1 select-none`;
+          
+          btn.textContent = item.display;
+          btn.dataset.key = item.key.toLowerCase();
+          if (item.alt) btn.dataset.alt = item.alt.toLowerCase();
+
+          // Action au clic virtuel
+          btn.addEventListener('click', () => {
+            if (gameStarted) {
+              handleGameKeyPress(item.key);
+            }
+          });
+
+          rowDiv.appendChild(btn);
+
+          // Indexation pour l'animation
+          keyElementsMap.set(item.key.toLowerCase(), btn);
+          if (item.alt) keyElementsMap.set(item.alt.toLowerCase(), btn);
+          if (item.display.toLowerCase() !== item.key.toLowerCase()) {
+            keyElementsMap.set(item.display.toLowerCase(), btn);
+          }
+        });
+
+        keyboardContainer.appendChild(rowDiv);
+      });
+    }
+
+    renderVirtualKeyboard();
+
+    /* ==========================================================
+       3. LOGIQUE DU JEU DE RÉFLEXE
+       ========================================================== */
+    let score = 0;
+    let combo = 0;
+    let targetKey = null;
+    let targetStartTime = 0;
+    let roundTimer = null;
+    let gaugeInterval = null;
+    let timeLimitMs = 2800; // délai initial par touche
+
+    const targetCharEl = document.getElementById('target-char');
+    const targetDescEl = document.getElementById('target-description');
+    const targetCardEl = document.getElementById('target-card');
+    const scoreDisplay = document.getElementById('score-display');
+    const comboDisplay = document.getElementById('combo-display');
+    const speedDisplay = document.getElementById('speed-display');
+    const feedbackBanner = document.getElementById('feedback-banner');
+    const timeGauge = document.getElementById('time-gauge');
+
+    function highlightKeyboardKey(key, isActive) {
+      const lower = key.toLowerCase();
+      const el = keyElementsMap.get(lower);
+      if (el) {
+        if (isActive) {
+          el.classList.add('target-key-glow');
+        } else {
+          el.classList.remove('target-key-glow');
+        }
+      }
+    }
+
+    function showVisualFeedback(isSuccess, message) {
+      feedbackBanner.textContent = message;
+      feedbackBanner.style.opacity = '1';
+      
+      if (isSuccess) {
+        feedbackBanner.className = "h-8 mt-3 text-center font-cyber font-bold text-sm tracking-wider text-neonGreen flex items-center justify-center gap-2 animate-bounce";
+        targetCardEl.classList.add('border-neonGreen');
+        setTimeout(() => targetCardEl.classList.remove('border-neonGreen'), 200);
+      } else {
+        feedbackBanner.className = "h-8 mt-3 text-center font-cyber font-bold text-sm tracking-wider text-neonPink flex items-center justify-center gap-2";
+        document.body.classList.add('screen-shake');
+        targetCardEl.classList.add('border-neonPink');
+        setTimeout(() => {
+          document.body.classList.remove('screen-shake');
+          targetCardEl.classList.remove('border-neonPink');
+        }, 300);
+      }
+
+      setTimeout(() => {
+        feedbackBanner.style.opacity = '0';
+      }, 700);
+    }
+
+    function spawnNextTarget() {
+      // Nettoyer l'ancienne clé illuminée
+      if (targetKey) {
+        highlightKeyboardKey(targetKey, false);
+      }
+      clearInterval(gaugeInterval);
+      clearTimeout(roundTimer);
+
+      // Choisir une nouvelle touche différente de la précédente
+      let nextKey;
+      do {
+        nextKey = TARGET_POOL[Math.floor(Math.random() * TARGET_POOL.length)];
+      } while (nextKey === targetKey && TARGET_POOL.length > 1);
+
+      targetKey = nextKey;
+      targetStartTime = performance.now();
+
+      // Affichage du caractère
+      if (targetKey === ' ') {
+        targetCharEl.textContent = '␣';
+        targetDescEl.textContent = 'Touche ESPACE';
+      } else {
+        targetCharEl.textContent = targetKey.toUpperCase();
+        targetDescEl.textContent = `Touche AZERTY : [ ${targetKey.toUpperCase()} ]`;
+      }
+
+      // Mise en surbrillance sur le clavier virtuel
+      highlightKeyboardKey(targetKey, true);
+
+      // Ajustement dynamique du temps limite en fonction du score
+      timeLimitMs = Math.max(900, 2600 - (score * 45));
+
+      // Gestion de la jauge temporelle
+      const startTime = Date.now();
+      timeGauge.style.width = '100%';
+
+      gaugeInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.max(0, 1 - (elapsed / timeLimitMs));
+        timeGauge.style.width = `${progress * 100}%`;
+      }, 25);
+
+      // Timer d'expiration si le joueur est trop lent
+      roundTimer = setTimeout(() => {
+        handleTimeout();
+      }, timeLimitMs);
+    }
+
+    function handleTimeout() {
+      combo = 0;
+      comboDisplay.textContent = '0x';
+      showVisualFeedback(false, 'TEMPS ÉCOULÉ ! ⌛');
+      spawnNextTarget();
+    }
+
+    function handleGameKeyPress(pressedKey) {
+      if (!targetKey) return;
+
+      const pKey = pressedKey.toLowerCase();
+      const tKey = targetKey.toLowerCase();
+
+      // Mapping spécial pour chiffres français (ex: '&' correspond à 1)
+      const numberFrenchMap = {
+        '&': '1', 'é': '2', '"': '3', '\'': '4', '(': '5',
+        '-': '6', 'è': '7', '_': '8', 'ç': '9', 'à': '0'
+      };
+
+      const isMatch = (pKey === tKey) || 
+                      (numberFrenchMap[pKey] === tKey) || 
+                      (tKey === numberFrenchMap[pKey]);
+
+      if (isMatch) {
+        // Bonne touche pressée !
+        const reactionTime = Math.round(performance.now() - targetStartTime);
+        speedDisplay.textContent = `${reactionTime} ms`;
+
+        // Incrémentation score & combo
+        combo++;
+        score += 10 + Math.min(combo * 2, 40);
+
+        scoreDisplay.textContent = score;
+        comboDisplay.textContent = `${combo}x`;
+
+        // Lancement du son fourni
+        playHitSound();
+
+        // Animation de réussite
+        showVisualFeedback(true, `PARFAIT ! (+${10 + Math.min(combo * 2, 40)}) 🔥`);
+
+        // Effet de pression sur la touche virtuelle
+        const btn = keyElementsMap.get(tKey);
+        if (btn) {
+          btn.classList.add('bg-neonGreen', 'text-black', 'scale-110');
+          setTimeout(() => btn.classList.remove('bg-neonGreen', 'text-black', 'scale-110'), 150);
+        }
+
+        spawnNextTarget();
+      } else {
+        // Erreur de frappe
+        combo = 0;
+        comboDisplay.textContent = '0x';
+        showVisualFeedback(false, `ERREUR ! [${pressedKey.toUpperCase()}] ❌`);
+      }
+    }
+
+    function startGameLoop() {
+      score = 0;
+      combo = 0;
+      scoreDisplay.textContent = '0';
+      comboDisplay.textContent = '0x';
+      spawnNextTarget();
+    }
+
+    /* ==========================================================
+       4. FOND D'ÉCRAN PARTICULES INTERACTIF (CANVAS)
+       ========================================================== */
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let particles = [];
+    const particleCount = 45;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = (Math.random() - 0.5) * 0.8;
+        this.radius = Math.random() * 2 + 1;
+        this.color = Math.random() > 0.5 ? '#00f3ff' : '#ff007f';
+        this.alpha = Math.random() * 0.5 + 0.2;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      }
+      draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.alpha;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push(new Particle());
+    }
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    // Tentative initiale de démarrage audio dès le chargement de la page
+    window.onload = function () {
+      tryPlayIntroAudio();
+    };
+  </script>
+</body>
+</html>
+```
